@@ -3,6 +3,7 @@ import { useAppData } from '@/hooks/useAppData';
 import { useTTS } from '@/hooks/useTTS';
 import { useCosyVoiceTTS } from '@/hooks/useCosyVoiceTTS';
 import { useMemo, useState, useEffect, lazy, Suspense } from 'react';
+import { DelayedSkeleton } from '@/components/DelayedSkeleton';
 import UsagePage from './pages/UsagePage';
 
 const TrainingPage = lazy(() => import('./pages/TrainingPage'));
@@ -76,23 +77,19 @@ export default function AppRoutes() {
   );
 
   if (!welcomeChecked) {
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '50vh', color: '#999', fontSize: 14 }}>
-        加载中...
-      </div>
-    );
+    return <DelayedSkeleton variant="page" />;
   }
 
   if (showWelcome) {
     return (
-      <Suspense fallback={<div className="flex items-center justify-center h-screen">加载中...</div>}>
+      <Suspense fallback={<DelayedSkeleton variant="page" />}>
         <WelcomePage onComplete={handleOnboardingComplete} />
       </Suspense>
     );
   }
 
   return (
-    <Suspense fallback={<div className="flex items-center justify-center h-screen">加载中...</div>}>
+    <Suspense fallback={<DelayedSkeleton variant="page" />}>
       <Routes>
         <Route
           path="/"

@@ -6,6 +6,7 @@ import { useWhisperASR } from '@/hooks/useWhisperASR';
 import { useWechatBridge, getWechatDebugInfo } from '@/hooks/useWechatBridge';
 import AudioRecorderButton from '@/components/AudioRecorderButton';
 import ASRStreamingResult from '@/components/ASRStreamingResult';
+import { ASRErrorBanner } from '@/components/ASRErrorBanner';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { useAccessibility } from '@/hooks/useAccessibility';
 import { toast } from 'sonner';
@@ -118,6 +119,13 @@ export default function UsagePage({
     setLastTranscript('');
     lastWavBlobRef.current = null;
     resetASR();
+  }, [resetASR]);
+
+  // 错误横幅一键重试：沿用 last WAV 对应的 webmBlob 不好保留，
+  // 最稳妥的自助动作是引导用户再录一次 → 回到 idle 并清错误
+  const handleErrorRetry = useCallback(() => {
+    resetASR();
+    setFlowState('idle');
   }, [resetASR]);
 
   const handleCopy = useCallback((text: string) => {
@@ -326,14 +334,27 @@ export default function UsagePage({
         </>
       )}
 
-      {(recError || asrError || ttsError) && (
+      {asrError && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+        >
+          <ASRErrorBanner
+            error={asrError}
+            onRetry={handleErrorRetry}
+            onDismiss={resetASR}
+          />
+        </motion.div>
+      )}
+
+      {(recError || ttsError) && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           className="rounded-xl bg-destructive/10 border border-destructive/20 p-3.5 text-sm text-destructive"
           role="alert"
         >
-          {recError || asrError || ttsError}
+          {recError || ttsError}
         </motion.div>
       )}
 

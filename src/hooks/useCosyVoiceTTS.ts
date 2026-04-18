@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 
 const PROMPT_AUDIO_KEY = 'resonance_prompt_audio';
 const PROMPT_TEXT_KEY = 'resonance_prompt_text';
@@ -28,9 +28,11 @@ export function useCosyVoiceTTS(): UseCosyVoiceTTSReturn {
   });
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const promptBlobRef = useRef<Blob | null>(null);
+  const promptTextRef = useRef<string>('');
 
   const setPromptAudio = useCallback((blob: Blob, promptText?: string) => {
     promptBlobRef.current = blob;
+    if (promptText) promptTextRef.current = promptText;
     // Also persist as base64 for cross-session usage
     const reader = new FileReader();
     reader.onloadend = () => {
@@ -47,6 +49,7 @@ export function useCosyVoiceTTS(): UseCosyVoiceTTSReturn {
 
   const clearPromptAudio = useCallback(() => {
     promptBlobRef.current = null;
+    promptTextRef.current = '';
     try {
       localStorage.removeItem(PROMPT_AUDIO_KEY);
       localStorage.removeItem(PROMPT_TEXT_KEY);
@@ -69,6 +72,32 @@ export function useCosyVoiceTTS(): UseCosyVoiceTTSReturn {
     }
   }, []);
 
+  // 跨会话首次 speak 前预热：mount 后空闲时解码 localStorage 里的 prompt
+  // 避免用户点"朗读"后等 100-200ms 才发请求
+  useEffect(() => {
+    if (!hasPromptAudio) return;
+    const schedule =
+      (typeof window !== 'undefined' && window.requestIdleCallback) ||
+      ((cb: () => void) => setTimeout(cb, 0));
+    const cancel =
+      (typeof window !== 'undefined' && window.cancelIdleCallback) ||
+      clearTimeout;
+
+    // 预热 blob
+    const id = schedule(() => { void getPromptBlob(); });
+    // 预热 text（同步，便宜）
+    try {
+      promptTextRef.current = localStorage.getItem(PROMPT_TEXT_KEY) || '';
+    } catch { /* ignore */ }
+
+    return () => {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (cancel as any)(id);
+      } catch { /* ignore */ }
+    };
+  }, [hasPromptAudio, getPromptBlob]);
+
   const speak = useCallback(async (text: string) => {
     setError(null);
     if (audioRef.current) {
@@ -83,7 +112,10 @@ export function useCosyVoiceTTS(): UseCosyVoiceTTSReturn {
       setIsSpeaking(true);
 
       const promptBlob = await getPromptBlob();
-      const promptText = localStorage.getItem(PROMPT_TEXT_KEY) || '';
+      const promptText =
+        promptTextRef.current ||
+        localStorage.getItem(PROMPT_TEXT_KEY) ||
+        '';
 
       let response: Response;
 

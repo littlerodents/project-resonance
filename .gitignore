@@ -33,3 +33,8 @@ Thumbs.db
 
 # Temporary files
 tmp/
+
+# Local data artifacts (not for VCS)
+MEMORY/
+model/
+录音/
